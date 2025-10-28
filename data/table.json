@@ -1,0 +1,13 @@
+{
+  "table": {
+    "id": 1,
+    "name": "Tavolo 1",
+    "reservations": [
+      {
+        "username": "andrea sdchwarz",
+        "start": "2025-10-24T10:42:00.000Z",
+        "end": "2025-10-24T10:43:00.000Z"
+      }
+    ]
+  }
+}
