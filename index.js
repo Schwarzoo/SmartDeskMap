@@ -11,32 +11,51 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-
-// Headers CORS manuali (soluzione più robusta)
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  
-  // Gestisci preflight OPTIONS
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  
-  next();
-});
-
-app.use(cors({
-  origin: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type'],
-  credentials: false
-}));
-
+app.use(cors());
 app.use(express.json());
 
-// Percorso file dati
-const DATA_PATH = path.join(__dirname, "data", "tables.json");
+// Percorso file dati - usa volume persistente su Fly.io, altrimenti locale
+const DATA_PATH = process.env.FLY_APP_NAME 
+  ? "/data/tables.json" 
+  : path.join(__dirname, "data", "tables.json");
+
+// Inizializza file JSON su Fly.io se non esiste
+function initDataFile() {
+  try {
+    // Se su Fly.io, crea la cartella /data se non esiste
+    if (process.env.FLY_APP_NAME) {
+      const dataDir = path.dirname(DATA_PATH);
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+        console.log(`📁 Creata cartella: ${dataDir}`);
+      }
+    }
+    
+    // Se il file non esiste, crealo con dati di esempio
+    if (!fs.existsSync(DATA_PATH)) {
+      const initialData = {
+        tables: [
+          { id: 1, x: "50px", y: "100px", rotation: 0, reservations: [] },
+          { id: 2, x: "150px", y: "100px", rotation: 90, reservations: [] },
+          { id: 3, x: "250px", y: "100px", rotation: 0, reservations: [] },
+          { id: 4, x: "350px", y: "100px", rotation: 90, reservations: [] },
+          { id: 5, x: "450px", y: "100px", rotation: 0, reservations: [] },
+          { id: 6, x: "50px", y: "200px", rotation: 0, reservations: [] },
+          { id: 7, x: "150px", y: "200px", rotation: 90, reservations: [] },
+          { id: 8, x: "250px", y: "200px", rotation: 0, reservations: [] },
+          { id: 9, x: "350px", y: "200px", rotation: 90, reservations: [] },
+          { id: 10, x: "450px", y: "200px", rotation: 0, reservations: [] }
+        ]
+      };
+      fs.writeFileSync(DATA_PATH, JSON.stringify(initialData, null, 2), "utf8");
+      console.log(`📄 File dati creato: ${DATA_PATH}`);
+    } else {
+      console.log(`✅ File dati trovato: ${DATA_PATH}`);
+    }
+  } catch (err) {
+    console.error("❌ Errore inizializzazione file dati:", err);
+  }
+}
 
 // ===============
 // Helper functions
@@ -177,9 +196,39 @@ app.post("/api/cleanup", (req, res) => {
 });
 
 // =======================
+// 🔹 POST /api/init - Carica tutti i tavoli dal client
+// =======================
+app.post("/api/init", (req, res) => {
+  try {
+    const { tables } = req.body;
+    
+    if (!tables || !Array.isArray(tables)) {
+      return res.status(400).json({ error: "Array 'tables' mancante" });
+    }
+    
+    // Sovrascrivi i tavoli con quelli ricevuti
+    const data = { tables };
+    writeData(data);
+    
+    console.log(`✅ Caricati ${tables.length} tavoli dal client`);
+    res.json({ ok: true, count: tables.length });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Errore inizializzazione" });
+  }
+});
+
+// =======================
+// 🔹 AVVIO SERVER
+// =======================
 // 🔹 AVVIO SERVER
 // =======================
 const PORT = process.env.PORT || 4000;
+
+// Inizializza file dati prima di avviare il server
+initDataFile();
+
 app.listen(PORT, () => {
-  console.log(`✅ Server attivo su http://localhost:${PORT}`);
+  console.log(`✅ Server attivo su porta ${PORT}`);
+  console.log(`📂 Percorso dati: ${DATA_PATH}`);
 });

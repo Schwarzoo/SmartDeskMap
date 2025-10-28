@@ -1,0 +1,21 @@
+app = "smartdesk-backend"
+primary_region = "ams"
+
+[build]
+  [build.args]
+    NODE_VERSION = "18"
+
+[env]
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+# Persistent Volume per salvare tables.json
+[mounts]
+  source = "smartdesk_data"
+  destination = "/data"
